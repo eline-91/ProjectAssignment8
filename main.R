@@ -20,7 +20,7 @@ for(i in 1:length(gewata_list)){
 vcfGewata[vcfGewata > 100] <- NA
 alldata <- brick(GewataB1, GewataB2, GewataB3, GewataB4, GewataB5, GewataB7, vcfGewata)
 names(alldata) <- c("band1", "band2", "band3", "band4", "band5", "band7", "VCF")
-plot(alldata, col=)
+plot(alldata)
 # Extract all data to a dataframe
 df <- as.data.frame(getValues(alldata))
 
@@ -31,6 +31,7 @@ for(i in 1:6){
 
 # Make the linear model with interactions and without interactions
 model <- lm(VCF ~ band1 + band2 + band3 + band4 + band5, data = df)
+summary(model)
 
 # Predict the map
 vcfMap <- predict(alldata[[1:5]], model = model)
@@ -44,3 +45,14 @@ RMSE <- sqrt(mean((alldata$VCF-vcfMap)^2))
 hist(RMSE)
 
 # Load training zones
+load(file.path(inFolder,'trainingPoly.rda'))
+
+# Give the classes a code and make a raster of it
+trainingPoly@data$Code <- as.numeric(trainingPoly@data$Class)
+trainingPoly@data
+classes <- rasterize(trainingPoly, RMSE, field='Code')
+
+# Perform zonal statistics to calculate mean RMSE of each zone
+stat_mat <- zonal(RMSE, classes, fun = 'mean', na.rm=T)
+stat_df <- as.data.frame(stat_mat)
+worst_zone <- stat_df[which(stat_df$mean == max(stat_df$mean)), ]
