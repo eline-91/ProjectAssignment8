@@ -40,9 +40,12 @@ vcfMap <- predict(alldata[[1:5]], model = model)
 vcfMap[vcfMap < 0] <- 0
 plot(vcfMap)
 
-# Calculate the RMSE 
-RMSE <- sqrt(mean((alldata$VCF-vcfMap)^2))
-hist(RMSE)
+# Calculate the RMSE
+squared_differences <- (alldata$VCF-vcfMap)^2
+plot(squared_differences)
+mean_squared = cellStats(squared_differences, stat = 'mean')
+RMSE = sqrt(mean_squared)
+print(paste("The RMSE is:", RMSE))
 
 # Load training zones
 load(file.path(inFolder,'trainingPoly.rda'))
@@ -50,9 +53,16 @@ load(file.path(inFolder,'trainingPoly.rda'))
 # Give the classes a code and make a raster of it
 trainingPoly@data$Code <- as.numeric(trainingPoly@data$Class)
 trainingPoly@data
-classes <- rasterize(trainingPoly, RMSE, field='Code')
+classes <- rasterize(trainingPoly, squared_differences, field='Code')
 
-# Perform zonal statistics to calculate mean RMSE of each zone
-stat_mat <- zonal(RMSE, classes, fun = 'mean', na.rm=T)
-stat_df <- as.data.frame(stat_mat)
-worst_zone <- stat_df[which(stat_df$mean == max(stat_df$mean)), ]
+# Perform zonal statistics to calculate RMSE of each zone
+mat_mean <- zonal(squared_differences, classes, fun = 'mean', na.rm=T)
+sqrt_vector <- sqrt(mat_mean[,2])
+stat_df <- as.data.frame(mat_mean)
+stat_df$RMSE <- sqrt_vector
+stat_df$class <- c("cropland","forest","wetland")
+
+# This is a data frame of the RMSE values per class
+stat_df
+worst_zone <- stat_df[which(stat_df$RMSE == max(stat_df$RMSE)), ]
+worst_zone

@@ -77,9 +77,11 @@ The two plots above are the predicted VCF map (left), and the actual VCF map (ri
 
 Calculate the RMSE and show a histogram of the data.
 ``` {r}
-RMSE <- sqrt(mean((alldata$VCF-vcfMap)^2))
-hist(RMSE, main="Histogram of the RMSE")
-
+squared_differences <- (alldata$VCF-vcfMap)^2
+plot(squared_differences)
+mean_squared = cellStats(squared_differences, stat = 'mean')
+RMSE = sqrt(mean_squared)
+print(paste("The RMSE is:", RMSE))
 ```
 
 Load training zones and make a raster of the class codes.
@@ -89,18 +91,19 @@ load(file.path(inFolder,'trainingPoly.rda'))
 # Give the classes a code and make a raster of it
 trainingPoly@data$Code <- as.numeric(trainingPoly@data$Class)
 trainingPoly@data
-classes <- rasterize(trainingPoly, RMSE, field='Code')
+classes <- rasterize(trainingPoly, squared_differences, field='Code')
 ```
 
-This raster can then be used to perform the zonal statistics and calculate the mean RMSE for each class.
+This raster can then be used to perform the zonal statistics and calculate the RMSE for each class.
 ``` {r}
-# Perform zonal statistics to calculate mean RMSE of each zone
-stat_mat <- zonal(RMSE, classes, fun = 'mean', na.rm=T)
-stat_mat
-stat_df <- as.data.frame(stat_mat)
-
-# The zone that gives the highest average RMSE
-worst_zone <- stat_df[which(stat_df$mean == max(stat_df$mean)), ]
+# Perform zonal statistics to calculate RMSE of each zone
+mat_mean <- zonal(squared_differences, classes, fun = 'mean', na.rm=T)
+sqrt_vector <- sqrt(mat_mean[,2])
+stat_df <- as.data.frame(mat_mean)
+stat_df$RMSE <- sqrt_vector
+stat_df$class <- c("cropland","forest","wetland")
+stat_df
+worst_zone <- stat_df[which(stat_df$RMSE == max(stat_df$RMSE)), ]
 worst_zone
 ```
 You can see in the matrix that zone 1 and 3 (cropland and wetland respectively) have on average a higher RMSE than zone 2 (forest). This was expected when comparing the maps, as forests were usually correctly predicted and the other 2 zones gave more differences. Wetland showed the highest average RMSE.
